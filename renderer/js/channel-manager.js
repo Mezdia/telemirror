@@ -14,7 +14,7 @@ class ChannelManager {
         if (this.channels.length === 0) {
             this.channels = [
                 {
-                    username: 'ircfspace',
+                    username: 'mezdia',
                     name: 'IRCF | اینترنت آزاد برای همه',
                     loading: false,
                     pinned: true
@@ -27,7 +27,7 @@ class ChannelManager {
             // Set first channel as active
             this.activeChannel = this.channels[0].username;
         } else {
-            // Ensure ircfspace channel exists and is pinned
+            // Ensure mezdia channel exists and is pinned
             this.ensurePinnedChannel();
             this.activeChannel = null;
         }
@@ -374,9 +374,9 @@ class ChannelManager {
         this.setActiveChannel(username);
     }
 
-    // Ensure ircfspace channel exists and is pinned
+    // Ensure mezdia channel exists and is pinned
     ensurePinnedChannel() {
-        const pinnedUsername = 'ircfspace';
+        const pinnedUsername = 'mezdia';
         let pinnedChannel = this.channels.find((c) => c.username === pinnedUsername);
 
         if (!pinnedChannel) {
@@ -485,9 +485,9 @@ class ChannelManager {
 
         // Sort channels: pinned channels first, then others
         const sortedChannels = validChannels.sort((a, b) => {
-            // ircfspace (pinned) always comes first
-            if (a.username === 'ircfspace') return -1;
-            if (b.username === 'ircfspace') return 1;
+            // mezdia (pinned) always comes first
+            if (a.username === 'mezdia') return -1;
+            if (b.username === 'mezdia') return 1;
             // For any other pinned channels, sort by pinned status
             if (a.pinned && !b.pinned) return -1;
             if (!a.pinned && b.pinned) return 1;
@@ -1050,7 +1050,7 @@ class ChannelManager {
         // Donation button functionality
         if (donateButton) {
             donateButton.addEventListener('click', () => {
-                window.open('https://ircf.space/contacts.html#donate', '_blank');
+                window.open('https://Mezdia.ir/contacts.html#donate', '_blank');
             });
         }
     }

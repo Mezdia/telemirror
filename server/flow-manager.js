@@ -83,7 +83,7 @@ class FlowManager {
                     status: 200,
                     headers: {},
                     responseTime: 0,
-                    url: `https://raw.githubusercontent.com/ircfspace/teleFeed/refs/heads/export/${username}.json`,
+                    url: `https://raw.githubusercontent.com/mezdia/teleFeed/refs/heads/export/${username}.json`,
                     source: 'github',
                     offline: true,
                     flow: 'offline_direct'
@@ -273,9 +273,9 @@ class FlowManager {
     getGitHubUrl(username) {
         const lowercaseUsername = username.toLowerCase();
         if (this.versionMode === 'normal') {
-            return `https://raw.githubusercontent.com/ircfspace/teleFeed/refs/heads/export/${lowercaseUsername}_base64.json`;
+            return `https://raw.githubusercontent.com/mezdia/teleFeed/refs/heads/export/${lowercaseUsername}_base64.json`;
         } else {
-            return `https://raw.githubusercontent.com/ircfspace/teleFeed/refs/heads/export/${lowercaseUsername}.json`;
+            return `https://raw.githubusercontent.com/mezdia/teleFeed/refs/heads/export/${lowercaseUsername}.json`;
         }
     }
 

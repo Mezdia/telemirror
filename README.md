@@ -24,7 +24,7 @@ Pre-built binaries are available for the following platforms and architectures:
 | Linux    | x64, arm64       |
 | macOS    | x64, arm64       |
 
-You can download the latest release from the [GitHub Releases](https://github.com/ircfspace/teleMirror/releases) page.
+You can download the latest release from the [GitHub Releases](https://github.com/mezdia/teleMirror/releases) page.
 
 ## Contributing
 
@@ -40,10 +40,10 @@ This project is licensed under the MIT License.
 
 ## Donate
 
-teleMirror is provided as a free and open-source application. If you find this project useful and would like to support its development, you can [make a donation](https://ircf.space/contacts.html#donate).
+teleMirror is provided as a free and open-source application. If you find this project useful and would like to support its development, you can [make a donation](https://Mezdia.ir/contacts.html#donate).
 Your support helps us maintain and improve the project for everyone.
 
 ## Credits
 
 - This project incorporates some methods and techniques inspired by ezyTel, which served as a reference for certain implementation approaches. 
-- The project also utilizes the [TeleFeed](https://github.com/ircfspace/teleFeed) repository as a backup data source for channel content.
+- The project also utilizes the [TeleFeed](https://github.com/mezdia/teleFeed) repository as a backup data source for channel content.

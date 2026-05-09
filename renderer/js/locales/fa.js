@@ -99,5 +99,30 @@ const faTranslations = {
     restoreDefaultsDescription: 'پاک کردن تمام داده‌های کش شده و بازگردانی لیست کانال‌های پیشفرض.',
     settingsRestored: 'تنظیمات با موفقیت بازگردانی شد!',
     confirmRestoreDefaults:
-        'آیا مطمئن هستید که می‌خواهید تنظیمات را به پیشفرض برگردانید؟ این کار تمام داده‌های کش شده را پاک می‌کند.'
+        'آیا مطمئن هستید که می‌خواهید تنظیمات را به پیشفرض برگردانید؟ این کار تمام داده‌های کش شده را پاک می‌کند.',
+    // New features
+    sync: 'همگام‌سازی',
+    syncMessages: 'همگام‌سازی پیام‌ها',
+    syncing: 'در حال همگام‌سازی...',
+    syncStarted: 'همگام‌سازی کانال‌ها آغاز شد...',
+    syncCompleted: 'همه کانال‌ها با موفقیت همگام شدند',
+    syncError: 'خطا در همگام‌سازی کانال {0}',
+    download: 'دانلود',
+    downloadMedia: 'دانلود مدیا',
+    downloading: 'در حال دانلود...',
+    downloadStarted: 'دانلود مدیا آغاز شد...',
+    downloadCompleted: 'دانلود کامل شد',
+    downloadFailed: 'دانلود ناموفق بود',
+    unreadMessages: '{0} نخوانده',
+    newMessages: '{0} جدید',
+    lastSync: 'آخرین همگام‌سازی: {0}',
+    noNewMessages: 'پیام جدیدی نیست',
+    refresh: 'بازنشانی',
+    refreshing: 'در حال بازنشانی...',
+    channelAdded: 'کانال با موفقیت اضافه شد',
+    channelRemoved: 'کانال حذف شد',
+    noChannels: 'هنوز کانالی اضافه نشده',
+    touchToAdd: 'نام کاربری کانال را بالا وارد کنید و + را بزنید',
+    connectionTimeout: 'وقفه در اتصال',
+    connectionFailed: 'اتصال ناموفق بود'
 };

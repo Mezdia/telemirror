@@ -1,0 +1,12 @@
+# Capacitor generated Android project
+android/
+# Node modules for mobile
+node_modules/
+# Build output
+dist/
+# IDE
+.idea/
+*.iml
+# OS
+.DS_Store
+Thumbs.db

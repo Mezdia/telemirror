@@ -2,6 +2,8 @@
 class ChannelManager {
     constructor() {
         this.channels = this.loadChannels();
+        this.unreadCounts = this.loadUnreadCounts();
+        this.lastReadIds = this.loadLastReadIds();
         this.isLoading = false; // Track loading state
         this.pendingChannel = null; // Track pending channel switch
 
@@ -36,15 +38,21 @@ class ChannelManager {
 
     init() {
         this.renderChannels();
+        this.updateUnreadBadges();
         this.setupEventListeners();
         this.setupLeaveButton();
+        this.setupSyncButton();
         this.setupLanguageListener();
+        this.loadLastActiveChannel();
+        // auto refresh after short delay
+        setTimeout(() => this.syncAllChannels(true), 1500);
     }
 
     setupLanguageListener() {
         document.addEventListener('languageChanged', () => {
             this.renderChannels();
             this.updateMessageHeader();
+            this.updateUnreadBadges();
             if (!this.activeChannel) {
                 this.showEmptyState();
             }
@@ -58,6 +66,172 @@ class ChannelManager {
 
     saveChannels() {
         localStorage.setItem('telegramChannels', JSON.stringify(this.channels));
+    }
+
+    loadUnreadCounts() {
+        try {
+            const saved = localStorage.getItem('telegramUnreadCounts');
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    saveUnreadCounts() {
+        try {
+            localStorage.setItem('telegramUnreadCounts', JSON.stringify(this.unreadCounts));
+        } catch (e) {
+            console.error('Failed to save unread counts:', e);
+        }
+    }
+
+    loadLastReadIds() {
+        try {
+            const saved = localStorage.getItem('telegramLastReadIds');
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    saveLastReadIds() {
+        try {
+            localStorage.setItem('telegramLastReadIds', JSON.stringify(this.lastReadIds));
+        } catch (e) {
+            console.error('Failed to save last read ids:', e);
+        }
+    }
+
+    loadLastActiveChannel() {
+        try {
+            const last = localStorage.getItem('telegramLastActiveChannel');
+            if (last && this.channels.find(c => c.username === last)) {
+                this.setActiveChannel(last);
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    saveLastActiveChannel(username) {
+        try {
+            localStorage.setItem('telegramLastActiveChannel', username);
+        } catch {
+            // ignore
+        }
+    }
+
+    getUnreadCount(username) {
+        return this.unreadCounts[username] || 0;
+    }
+
+    /**
+     * Compute unread count for a channel based on cached data.
+     * @param {string} username
+     * @param {Array} posts - posts array from server response
+     */
+    computeUnread(username, posts) {
+        if (!posts || posts.length === 0) return 0;
+        const lastReadId = this.lastReadIds[username];
+        if (!lastReadId) return posts.length; // all new
+        let count = 0;
+        for (const post of posts) {
+            if (String(post.id) === String(lastReadId)) break; // up to last read
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * Mark channel as read (update lastReadId to latest post id).
+     * @param {string} username
+     * @param {Array} posts
+     */
+    markChannelRead(username, posts) {
+        if (!posts || posts.length === 0) return;
+        const latestId = String(posts[0].id || posts[0].time || Date.now());
+        this.lastReadIds[username] = latestId;
+        this.saveLastReadIds();
+        this.unreadCounts[username] = 0;
+        this.saveUnreadCounts();
+        this.updateUnreadBadges();
+    }
+
+    updateUnreadBadges() {
+        const container = document.getElementById('channelsContainer');
+        if (!container) return;
+        const items = container.querySelectorAll('.channel-item');
+        items.forEach(item => {
+            const usernameEl = item.querySelector('.channel-username');
+            if (!usernameEl) return;
+            const username = usernameEl.textContent.replace('@', '').trim();
+            const badgeEl = item.querySelector('.unread-badge');
+            const count = this.getUnreadCount(username);
+            if (count > 0) {
+                if (!badgeEl) {
+                    const badge = document.createElement('span');
+                    badge.className = 'unread-badge';
+                    badge.textContent = count;
+                    item.appendChild(badge);
+                } else {
+                    badgeEl.textContent = count;
+                }
+            } else if (badgeEl) {
+                badgeEl.remove();
+            }
+        });
+    }
+
+    /**
+     * Sync all channels and update unread counts.
+     * @param {boolean} silent - suppress UI feedback
+     */
+    async syncAllChannels(silent = false) {
+        const syncBtn = document.getElementById('headerSyncButton');
+        if (syncBtn) syncBtn.disabled = true;
+
+        const channelsToSync = [...this.channels]; // avoid mutation issues
+        for (const channel of channelsToSync) {
+            try {
+                await this.syncChannelMessages(channel.username, silent);
+            } catch (e) {
+                console.error(`Sync error for ${channel.username}:`, e);
+            }
+        }
+
+        if (syncBtn) syncBtn.disabled = false;
+        this.updateUnreadBadges();
+    }
+
+    async syncChannelMessages(username, silent = false) {
+        if (this.isLoading && !silent) return;
+
+        const requestId = window.api.generateRequestId();
+        const response = await window.api.fetchUrl(username, requestId);
+        if (!response.success || !response.data) return;
+
+        // Update cache
+        this.setCachedData(username, response.data);
+
+        // Compute unread count
+        const unread = this.computeUnread(username, response.data.posts || []);
+        this.unreadCounts[username] = unread;
+        this.saveUnreadCounts();
+
+        // Also update channel info if loaded
+        if (response.data.channel) {
+            const channel = this.channels.find(c => c.username === username);
+            if (channel) {
+                if (response.data.channel.title) channel.name = response.data.channel.title;
+                if (response.data.channel.photo) channel.photo = response.data.channel.photo;
+                this.saveChannels();
+            }
+        }
+
+        // If active channel matches, re-render
+        if (this.activeChannel === username && !silent) {
+            this.renderMessages(response.data, username);
+        }
     }
 
     // Clean up invalid channels
@@ -194,6 +368,7 @@ class ChannelManager {
         // Clear input and refresh channel list
         input.value = '';
         this.renderChannels();
+        this.updateUnreadBadges();
 
         // Set the new channel as active
         this.setActiveChannel(username);
@@ -239,7 +414,13 @@ class ChannelManager {
         this.saveChannels();
         // Clear cache for removed channel
         this.clearCache(username);
+        // Also clean unread data
+        delete this.unreadCounts[username];
+        delete this.lastReadIds[username];
+        this.saveUnreadCounts();
+        this.saveLastReadIds();
         this.renderChannels();
+        this.updateUnreadBadges();
 
         if (this.activeChannel === username) {
             this.setActiveChannel(null);
@@ -255,7 +436,9 @@ class ChannelManager {
         }
 
         this.activeChannel = username;
+        if (username) this.saveLastActiveChannel(username);
         this.renderChannels();
+        this.updateUnreadBadges();
         this.updateMessageHeader();
 
         if (username) {
@@ -317,6 +500,7 @@ class ChannelManager {
             const isPinned = channel.pinned;
             const isActive = channel.username === this.activeChannel;
             const isDisabled = this.isLoading && !isActive;
+            const unread = this.getUnreadCount(channel.username);
 
             channelEl.className = `channel-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
 
@@ -328,6 +512,7 @@ class ChannelManager {
             <div class="channel-name">${channel.name}${isPinned ? ' 📌' : ''}</div>
             <div class="channel-username">@${channel.username}</div>
           </div>
+          ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ''}
         `;
 
             if (!isDisabled) {
@@ -373,6 +558,22 @@ class ChannelManager {
         });
     }
 
+    setupSyncButton() {
+        const syncBtn = document.getElementById('headerSyncButton');
+        if (!syncBtn) return;
+
+        syncBtn.addEventListener('click', async () => {
+            syncBtn.disabled = true;
+            syncBtn.classList.add('syncing');
+            try {
+                await this.syncAllChannels();
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.classList.remove('syncing');
+            }
+        });
+    }
+
     // Get header channel avatar (Telegram photo first, then local, then text fallback)
     getHeaderChannelAvatar(channel) {
         const avatarText =
@@ -400,6 +601,7 @@ class ChannelManager {
         const subtitle = document.getElementById('channelSubtitle');
         const leaveButton = document.getElementById('headerLeaveButton');
         const viewButton = document.getElementById('headerViewButton');
+        const syncBtn = document.getElementById('headerSyncButton');
 
         if (channel) {
             avatar.innerHTML = this.getHeaderChannelAvatar(channel);
@@ -411,6 +613,7 @@ class ChannelManager {
                 leaveButton.style.display = isPinned ? 'none' : 'block';
                 viewButton.style.display = 'block'; // Always show view button
             }
+            if (syncBtn) syncBtn.style.display = 'block';
         } else {
             avatar.textContent = '?';
             title.textContent = I18n.t('selectChannel');
@@ -418,6 +621,7 @@ class ChannelManager {
             // Hide buttons when no channel selected
             if (leaveButton) leaveButton.style.display = 'none';
             if (viewButton) viewButton.style.display = 'none';
+            if (syncBtn) syncBtn.style.display = 'none';
         }
     }
 
@@ -594,6 +798,11 @@ class ChannelManager {
             return;
         }
 
+        // Mark channel as read when viewing messages
+        if (data.posts && data.posts.length > 0) {
+            this.markChannelRead(username, data.posts);
+        }
+
         // Update header and sidebar for the active channel
         if (data.channel) {
             const channel = this.channels.find((c) => c.username === username);
@@ -621,7 +830,7 @@ class ChannelManager {
                     } else {
                         avatarHtml = `<img src="${localImagePath}" alt="${channel.name}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;"
                   onerror="this.style.display='none'; this.parentElement.innerHTML='${avatarText}';"
-                  onload="loaded successfully);" />`;
+                  onload="console.log('Post avatar loaded successfully for ${channel.username}');" />`;
                     }
                 }
 
@@ -635,15 +844,18 @@ class ChannelManager {
                     const videos = post.media.filter((media) => media.type === 'video');
 
                     if (photos.length > 0) {
-                        mediaHtml += this.createMediaGrid(photos);
+                        mediaHtml += this.createMediaGridWithDownload(photos);
                     }
 
                     if (videos.length > 0) {
                         mediaHtml += videos
                             .map(
                                 (video) =>
-                                    `<div style="background: #1a1a1b; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 8px;">
+                                    `<div style="background: #1a1a1c; color: #c8ddf0; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 8px; border: 1px solid #1e3a5f;">
                     📹 ${I18n.t('video', video.duration || I18n.t('unknown'))}
+                    <div style="margin-top: 8px;">
+                      <button class="download-media-btn" onclick="event.stopPropagation(); window.api.downloadFile('${video.url}', 'video.mp4')">📥 ${I18n.t('download')}</button>
+                    </div>
                   </div>`
                             )
                             .join('');
@@ -671,7 +883,7 @@ class ChannelManager {
             });
         } else {
             container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #8a9ba8;">
+            <div style="text-align: center; padding: 20px; color: #7a8a9a;">
                 ${I18n.t('noMessagesFound')}
             </div>
         `;
@@ -688,7 +900,7 @@ class ChannelManager {
         }, 100);
     }
 
-    createMediaGrid(photos) {
+    createMediaGridWithDownload(photos) {
         const count = photos.length;
 
         if (count === 0) return '';
@@ -697,19 +909,22 @@ class ChannelManager {
 
         if (count === 1) {
             // Single image - full width
-            gridHtml += this.getPhotoHtml(photos[0]);
+            gridHtml += this.getPhotoHtmlWithDownload(photos[0]);
         } else if (count === 2) {
             // Two images - side by side 50%
-            gridHtml += photos.map((photo) => this.getPhotoHtml(photo, '50%')).join('');
+            gridHtml += photos.map((photo) => this.getPhotoHtmlWithDownload(photo, '50%')).join('');
         } else if (count === 3) {
             // Three images - first full width, next two side by side 50%
-            gridHtml += this.getPhotoHtml(photos[0]);
+            gridHtml += this.getPhotoHtmlWithDownload(photos[0]);
             gridHtml += '<div style="display: flex; gap: 4px;">';
             gridHtml += photos
                 .slice(1)
                 .map(
                     (photo) =>
-                        `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                        `<div style="position: relative; width: 50%;">
+              <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+              <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+            </div>`
                 )
                 .join('');
             gridHtml += '</div>';
@@ -720,7 +935,10 @@ class ChannelManager {
                 .slice(0, 2)
                 .map(
                     (photo) =>
-                        `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                        `<div style="position: relative; width: 50%;">
+              <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+              <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+            </div>`
                 )
                 .join('');
             gridHtml += '</div>';
@@ -729,7 +947,10 @@ class ChannelManager {
                 .slice(2)
                 .map(
                     (photo) =>
-                        `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                        `<div style="position: relative; width: 50%;">
+              <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+              <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+            </div>`
                 )
                 .join('');
             gridHtml += '</div>';
@@ -741,7 +962,10 @@ class ChannelManager {
                 .slice(0, 2)
                 .map(
                     (photo) =>
-                        `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                        `<div style="position: relative; width: 50%;">
+              <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+              <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+            </div>`
                 )
                 .join('');
             gridHtml += '</div>';
@@ -750,7 +974,10 @@ class ChannelManager {
                 .slice(2, 3)
                 .map(
                     (photo) =>
-                        `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                        `<div style="position: relative; width: 50%;">
+              <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+              <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+            </div>`
                 )
                 .join('');
             if (photos.length > 4) {
@@ -765,7 +992,10 @@ class ChannelManager {
                     .slice(3)
                     .map(
                         (photo) =>
-                            `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: 50%; height: 120px; border-radius: 8px; object-fit: cover;" />`
+                            `<div style="position: relative; width: 50%;">
+                <img src="${photo.thumb || photo.url}" alt="Photo" style="width: 100%; height: 120px; border-radius: 8px; object-fit: cover;" />
+                <button class="download-media-btn" style="position: absolute; bottom: 4px; right: 4px;" onclick="event.stopPropagation(); window.api.downloadFile('${photo.url}', 'image.jpg')">📥</button>
+              </div>`
                     )
                     .join('');
             }
@@ -776,14 +1006,25 @@ class ChannelManager {
         return gridHtml;
     }
 
-    getPhotoHtml(photo, width = '100%') {
-        // Check if photo is base64 data
-        if (photo.url && photo.url.startsWith('data:image/')) {
-            return `<img src="${photo.url}" alt="Photo" style="width: ${width}; height: auto; border-radius: 8px; object-fit: cover;" />`;
+    getPhotoHtmlWithDownload(photo, width = '100%') {
+        const url = photo.url || photo.thumb;
+        if (!url) return '';
+        if (url.startsWith('data:image/')) {
+            return `<img src="${url}" alt="Photo" style="width: ${width}; height: auto; border-radius: 8px; object-fit: cover;" />`;
         }
+        return `<div style="position: relative;">
+      <img src="${photo.thumb || photo.url}" alt="Photo" style="width: ${width}; height: auto; border-radius: 8px; object-fit: cover;" />
+      <button class="download-media-btn" style="position: absolute; bottom: 8px; right: 8px;" onclick="event.stopPropagation(); window.api.downloadFile('${url}', 'image.jpg')">📥</button>
+    </div>`;
+    }
 
-        // Regular URL image
-        return `<img src="${photo.thumb || photo.url}" alt="Photo" style="width: ${width}; height: auto; border-radius: 8px; object-fit: cover;" />`;
+    // Old method keep for backwards compatibility (used by ads maybe)
+    createMediaGrid(photos) {
+        return this.createMediaGridWithDownload(photos);
+    }
+
+    getPhotoHtml(photo, width = '100%') {
+        return this.getPhotoHtmlWithDownload(photo, width);
     }
 
     setupEventListeners() {
@@ -821,7 +1062,7 @@ class ChannelManager {
         if (filteredChannels.length === 0 && searchTerm.trim()) {
             // Show message that channel doesn't exist
             container.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: #8a9ba8;">
+          <div style="padding: 20px; text-align: center; color: #7a8a9a;">
             <div style="margin-bottom: 10px;">${I18n.t('channelNotInList', searchTerm)}</div>
             <div style="font-size: 12px;">${I18n.t('clickPlusToAdd')}</div>
           </div>
@@ -884,6 +1125,7 @@ class ChannelManager {
             const isPinned = channel.pinned;
             const isActive = channel.username === this.activeChannel;
             const isDisabled = this.isLoading && !isActive;
+            const unread = this.getUnreadCount(channel.username);
 
             channelEl.className = `channel-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
 
@@ -895,6 +1137,7 @@ class ChannelManager {
             <div class="channel-name">${channel.name}${isPinned ? ' 📌' : ''}</div>
             <div class="channel-username">@${channel.username}</div>
           </div>
+          ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ''}
         `;
 
             if (!isDisabled) {

@@ -40,6 +40,15 @@ contextBridge.exposeInMainWorld('api', {
 
         return () => eventSource.close();
     },
+    /**
+     * Download a media file from a URL and prompt save dialog.
+     * @param {string} url - The media URL to download
+     * @param {string} [defaultFilename] - Suggested filename
+     * @returns {Promise<{success: boolean, filePath?: string, error?: string}>}
+     */
+    downloadFile: async (url, defaultFilename) => {
+        return await ipcRenderer.invoke('download-file', url, defaultFilename);
+    },
     minimizeWindow: () => {
         ipcRenderer.send('minimize-window');
     },

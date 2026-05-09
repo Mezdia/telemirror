@@ -99,5 +99,30 @@ const enTranslations = {
     restoreDefaultsDescription: 'Clear all cached data and restore default channel list.',
     settingsRestored: 'Settings restored successfully!',
     confirmRestoreDefaults:
-        'Are you sure you want to restore default settings? This will clear all cached data.'
+        'Are you sure you want to restore default settings? This will clear all cached data.',
+    // New features
+    sync: 'Sync',
+    syncMessages: 'Sync Messages',
+    syncing: 'Syncing...',
+    syncStarted: 'Started syncing channels...',
+    syncCompleted: 'All channels synced successfully',
+    syncError: 'Error syncing channel {0}',
+    download: 'Download',
+    downloadMedia: 'Download Media',
+    downloading: 'Downloading...',
+    downloadStarted: 'Downloading media...',
+    downloadCompleted: 'Download completed',
+    downloadFailed: 'Download failed',
+    unreadMessages: '{0} unread',
+    newMessages: '{0} new',
+    lastSync: 'Last sync: {0}',
+    noNewMessages: 'No new messages',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing...',
+    channelAdded: 'Channel added successfully',
+    channelRemoved: 'Channel removed',
+    noChannels: 'No channels added yet',
+    touchToAdd: 'Enter a channel username above and tap +',
+    connectionTimeout: 'Connection timeout',
+    connectionFailed: 'Connection failed'
 };

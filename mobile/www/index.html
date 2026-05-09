@@ -2,28 +2,19 @@
 <html>
     <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
         <meta
             http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' http://localhost:*; img-src 'self' data: https://cdn1.telesco.pe https://cdn2.telesco.pe https://cdn3.telesco.pe https://cdn.telesco.pe https://t.me; font-src https://fonts.gstatic.com;"
+            content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' http://localhost:* http://YOUR_SERVER_IP:* https://*; img-src 'self' data: https://cdn1.telesco.pe https://cdn2.telesco.pe https://cdn3.telesco.pe https://cdn.telesco.pe https://t.me https://*;"
         />
-        <link rel="stylesheet" href="../assets/css/shabnam.css" />
-        <link rel="stylesheet" href="../assets/css/styles.css" />
+        <link rel="stylesheet" href="assets/css/shabnam.css" />
+        <link rel="stylesheet" href="assets/css/styles.css" />
     </head>
     <body>
-        <!-- Title Bar -->
-        <div class="title-bar">
-            <div class="title-bar-content">
-                <div class="title-bar-text">TeleMirror</div>
-            </div>
-            <div class="window-controls">
-                <button class="window-button minimize-button" id="minimizeButton">−</button>
-                <button class="window-button close-button" id="closeButton">×</button>
-            </div>
-        </div>
-
-        <div class="app-container">
-            <!-- Channel List -->
-            <div class="channel-list">
+        <!-- Main container (no Electron title bar / window controls) -->
+        <div class="app-container" style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+            <!-- Channel List (collapsible on mobile – treated as sidebar) -->
+            <div class="channel-list" style="width: 30%; min-width: 80px; display: flex; flex-direction: column;">
                 <div class="channel-list-header">
                     <div class="fetch-input-container">
                         <input
@@ -37,12 +28,12 @@
                     </div>
                 </div>
                 <div class="channels-container" id="channelsContainer">
-                    <!-- Channels will be added here -->
+                    <!-- Channels rendered by channel-manager -->
                 </div>
             </div>
 
             <!-- Message Area -->
-            <div class="message-area">
+            <div class="message-area" style="flex: 1; display: flex; flex-direction: column;">
                 <div class="message-header" id="messageHeader">
                     <div class="message-header-info">
                         <div class="header-channel-avatar" id="headerChannelAvatar">?</div>
@@ -116,8 +107,8 @@
             </div>
         </div>
 
-        <!-- Bottom Menu Bar -->
-        <div class="bottom-menu">
+        <!-- Bottom Menu Bar (floating) -->
+        <div class="bottom-menu" style="left: 50%; transform: translateX(-50%); bottom: 16px;">
             <button class="menu-btn" id="settingsBtnBottom" data-i18n="settings" title="Settings">
                 <span class="menu-icon">⚙️</span>
             </button>
@@ -126,7 +117,7 @@
             </button>
         </div>
 
-        <!-- Settings Dialog -->
+        <!-- Settings Dialog (same as desktop) -->
         <div class="settings-dialog" id="settingsDialog">
             <div class="settings-dialog-content">
                 <div class="settings-dialog-header">
@@ -190,7 +181,8 @@
             </div>
         </div>
 
-        <!-- Load JavaScript modules -->
+        <!-- JavaScript modules (mirror desktop order, but with mobile bridge) -->
+        <script src="js/mobile-api.js"></script>
         <script src="js/config-loader.js"></script>
         <script src="js/locales/en.js"></script>
         <script src="js/locales/fa.js"></script>

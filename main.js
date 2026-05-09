@@ -1,5 +1,8 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const https = require('https');
+const http = require('http');
 const { createServer } = require('./server/server');
 const appConfig = require('./config/app.config');
 const adsConfigLoader = require('./config/ads-config-loader');
@@ -105,6 +108,60 @@ if (!gotTheLock) {
     ipcMain.handle('get-server-port', () => {
         return actualServerPort;
     });
+
+    /**
+     * Download a file from a URL and save to user-chosen location.
+     */
+    ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
+        try {
+            const safeName = defaultFilename || url.split('/').pop() || 'download';
+            const result = await dialog.showSaveDialog(mainWindow, {
+                defaultPath: safeName,
+                filters: [
+                    { name: 'All Files', extensions: ['*'] },
+                    { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] },
+                    { name: 'Videos', extensions: ['mp4', 'webm', 'mkv'] }
+                ]
+            });
+
+            if (result.canceled || !result.filePath) {
+                return { success: false, error: 'Save cancelled' };
+            }
+
+            return await downloadFileToPath(url, result.filePath);
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    /**
+     * Download a file from a URL to a local path, following redirects.
+     * @param {string} url
+     * @param {string} filePath
+     * @returns {Promise<{success: boolean, filePath?: string, error?: string}>}
+     */
+    async function downloadFileToPath(url, filePath) {
+        const protocol = url.startsWith('https') ? https : http;
+        return new Promise((resolve) => {
+            protocol.get(url, (response) => {
+                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                    response.resume();
+                    return resolve(downloadFileToPath(response.headers.location, filePath));
+                }
+                const fileStream = fs.createWriteStream(filePath);
+                response.pipe(fileStream);
+                fileStream.on('finish', () => {
+                    fileStream.close();
+                    resolve({ success: true, filePath });
+                });
+                fileStream.on('error', (err) => {
+                    resolve({ success: false, error: err.message });
+                });
+            }).on('error', (err) => {
+                resolve({ success: false, error: err.message });
+            });
+        });
+    }
 
     // Cleanup function to close server
     function cleanup() {
